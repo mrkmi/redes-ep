@@ -30,45 +30,53 @@ public class UDPServer {
       ObjectInputStream o = new ObjectInputStream(b);
       Packet packet = (Packet) o.readObject();
 
-      /* Verifica a duplicidade do pacote recebido */
-      if(buffer > last && last == packet.getId()) {
-        System.out.println("Mensagem ID:" + packet.getId() + " '" + packet.getMsg() + "' recebida de forma duplicada\n");
-      }
-      else if(packet.getId() > buffer && !wrongOrder) {
-        System.out.println("Mensagem ID:" + packet.getId() + " '" + packet.getMsg() + "' recebida fora de ordem\n");
-        wrongOrder = true;
+      if(packet.getMsg().equals("reset")){
+        System.out.println("Resetando as variáveis do servidor...");
+        System.out.println("===============================\n");
+        buffer = 0;
+        last = 0;
       }
       else {
-        System.out.println("Mensagem ID:" + packet.getId() + " '" + packet.getMsg() + "' recebida\n");
-      }
+        /* Verifica a duplicidade do pacote recebido */
+        if(buffer > last && last == packet.getId()) {
+          System.out.println("Mensagem ID:" + packet.getId() + " '" + packet.getMsg() + "' recebida de forma duplicada\n");
+        }
+        else if(packet.getId() > buffer && !wrongOrder) {
+          System.out.println("Mensagem ID:" + packet.getId() + " '" + packet.getMsg() + "' recebida fora de ordem\n");
+          wrongOrder = true;
+        }
+        else {
+          System.out.println("Mensagem ID:" + packet.getId() + " '" + packet.getMsg() + "' recebida\n");
+        }
 
-      /* Verifica a confirmação correta para o pacote recebido */
-      int ackId = last;
-      if(!wrongOrder && buffer == packet.getId()) {
-        last = buffer;
-        ackId = buffer;
-        buffer += 1;
-      }
-      /* Serializa o pacote de confirmação adequado */
-      byte[] sendBuff = new byte[1024];
-      Ack ack = new Ack(ackId);
-      ByteArrayOutputStream bos = new ByteArrayOutputStream();
-      ObjectOutputStream out = new ObjectOutputStream(bos);
-      out.writeObject(ack);
-      sendBuff = bos.toByteArray();
+        /* Verifica a confirmação correta para o pacote recebido */
+        int ackId = last;
+        if(!wrongOrder && buffer == packet.getId()) {
+          last = buffer;
+          ackId = buffer;
+          buffer += 1;
+        }
+        /* Serializa o pacote de confirmação adequado */
+        byte[] sendBuff = new byte[1024];
+        Ack ack = new Ack(ackId);
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        ObjectOutputStream out = new ObjectOutputStream(bos);
+        out.writeObject(ack);
+        sendBuff = bos.toByteArray();
 
-      /* Obtem a porta e IP para enviar a confirmação */
-      InetAddress IPAddress = recPacket.getAddress();
-      int port = recPacket.getPort();
+        /* Obtem a porta e IP para enviar a confirmação */
+        InetAddress IPAddress = recPacket.getAddress();
+        int port = recPacket.getPort();
 
-      /* Envia o pacote de confirmação para o cliente */
-      DatagramPacket sendPacket =  new DatagramPacket(sendBuff, sendBuff.length, IPAddress, port);
-      serverSocket.send(sendPacket);
+        /* Envia o pacote de confirmação para o cliente */
+        DatagramPacket sendPacket =  new DatagramPacket(sendBuff, sendBuff.length, IPAddress, port);
+        serverSocket.send(sendPacket);
 
-      if (wrongOrder && packet.getId() == WINDOW_SIZE-1) {
-        wrongOrder = false;
+        /* Sinaliza que não está mais na janela de ordem incorreta */
+        if (wrongOrder && packet.getId() == WINDOW_SIZE-1) {
+          wrongOrder = false;
+        }
       }
     }
-
   }
 }
